@@ -5,6 +5,9 @@ Preview how your **Spotify Canvas videos** will look directly in the Spotify mob
 This tool helps artists and producers quickly check if their **Canvas (9:16 loop video)** fits correctly before uploading to Spotify for Artists.
 
 ---
+## Live Demo
+[![Open Previewer](https://img.shields.io/badge/Open-Spotify%20Canvas%20Previewer-1DB954?style=for-the-badge&logo=spotify&logoColor=white)](https://simonpaulboehm.github.io/SpotifyCanvasPreviewer/)
+---
 
 ## Features
 
