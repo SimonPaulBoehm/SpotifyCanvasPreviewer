@@ -239,6 +239,15 @@
     font-size: 18px;
     border: 1px solid rgba(255,255,255,0.1);
     box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    overflow: hidden; cursor: pointer; position: relative;
+  }
+  .album-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .album-thumb:hover::after {
+    content: '↑';
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: white; font-weight: 700;
   }
   .track-name {
     font-weight: 700; font-size: 14px;
@@ -391,6 +400,24 @@
       <input class="field-input" id="artistName" type="text" value="Artist Name" placeholder="Enter artist name..." oninput="updateTrack()"/>
     </div>
 
+    <div class="field">
+      <label class="field-label">Album Cover</label>
+      <div class="upload-zone" style="padding:16px 20px;flex-direction:row;gap:14px;justify-content:flex-start;"
+        onclick="document.getElementById('albumInput').click()"
+        ondragover="handleAlbumDragOver(event)"
+        ondragleave="handleAlbumDragLeave(event)"
+        ondrop="handleAlbumDrop(event)"
+        id="albumDropZone">
+        <div id="albumPreviewWrap" style="width:42px;height:42px;border-radius:7px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,#1DB954,#0f8c3a);display:flex;align-items:center;justify-content:center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div>
+          <p class="upload-title" style="font-size:13px;" id="albumUploadTitle">Upload album cover</p>
+          <p class="upload-hint">JPG, PNG, WEBP</p>
+        </div>
+      </div>
+    </div>
+
     <div class="specs-box fade-up-2">
       <p class="specs-title">Canvas Specs</p>
       <div class="spec-row"><span class="spec-key">Aspect Ratio</span><span class="spec-val">9:16 (vertical)</span></div>
@@ -451,7 +478,12 @@
 
         <div class="track-row">
           <div class="track-left">
-            <div class="album-thumb">🎵</div>
+            <div class="album-thumb" id="albumThumb" onclick="document.getElementById('albumInput').click()" title="Click to upload album cover">
+            <svg id="albumIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
+          <input type="file" id="albumInput" accept="image/*" style="display:none" onchange="handleAlbumInput(event)"/>
             <div>
               <div class="track-name" id="displayTitle">Track Title</div>
               <div class="track-artist" id="displayArtist">Artist Name</div>
@@ -637,6 +669,42 @@
     document.getElementById('dropZone').classList.remove('drag-over');
     const file = e.dataTransfer.files[0];
     if (file) loadCanvas(file);
+  }
+
+  function handleAlbumInput(e) {
+    const file = e.target.files[0];
+    if (file) loadAlbumCover(file);
+  }
+  function handleAlbumDragOver(e) {
+    e.preventDefault();
+    document.getElementById('albumDropZone').classList.add('drag-over');
+  }
+  function handleAlbumDragLeave(e) {
+    document.getElementById('albumDropZone').classList.remove('drag-over');
+  }
+  function handleAlbumDrop(e) {
+    e.preventDefault();
+    document.getElementById('albumDropZone').classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image')) loadAlbumCover(file);
+  }
+  function loadAlbumCover(file) {
+    const url = URL.createObjectURL(file);
+    // Update panel preview
+    const wrap = document.getElementById('albumPreviewWrap');
+    wrap.innerHTML = '';
+    const previewImg = document.createElement('img');
+    previewImg.src = url;
+    previewImg.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+    wrap.appendChild(previewImg);
+    const name = file.name.length > 22 ? file.name.slice(0, 19) + '...' : file.name;
+    document.getElementById('albumUploadTitle').textContent = name;
+    // Update phone album thumb
+    const thumb = document.getElementById('albumThumb');
+    document.getElementById('albumIcon').style.display = 'none';
+    let img = thumb.querySelector('img');
+    if (!img) { img = document.createElement('img'); thumb.appendChild(img); }
+    img.src = url;
   }
 
   function loadCanvas(file) {
