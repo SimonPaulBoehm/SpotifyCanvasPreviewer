@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Spotify Canvas Previewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green: #1DB954;
+    --green-dim: rgba(29,185,84,0.12);
+    --bg: #2c2c2e;
+    --surface: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.1);
+    --text: #f0f0f0;
+    --text-muted: rgba(255,255,255,0.5);
+    --text-sub: rgba(255,255,255,0.25);
+  }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none; z-index: 0;
+  }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 40px;
+    background: rgba(44,44,46,0.88);
+    backdrop-filter: blur(24px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-brand { display: flex; align-items: center; gap: 10px; }
+  .nav-brand svg { color: var(--green); }
+  .nav-brand span { font-weight: 800; font-size: 16px; letter-spacing: -0.4px; }
+
+  .device-toggle { display: flex; gap: 6px; }
+  .device-btn {
+    padding: 6px 18px; border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .device-btn:hover { border-color: rgba(255,255,255,0.25); color: var(--text); }
+  .device-btn.active {
+    border-color: var(--green);
+    background: var(--green-dim);
+    color: var(--green);
+  }
+
+  .main {
+    position: relative; z-index: 1;
+    display: flex; gap: 48px;
+    padding: 44px 40px;
+    max-width: 1080px; margin: 0 auto;
+    align-items: flex-start; justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .panel { flex: 0 0 310px; display: flex; flex-direction: column; gap: 20px; }
+  .panel-title { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 2px; }
+  .panel-sub { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 16px; padding: 30px 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    cursor: pointer; text-align: center;
+    transition: all 0.2s; background: var(--surface);
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--green);
+    background: var(--green-dim);
+  }
+  .upload-icon-wrap {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--green-dim);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--green); transition: transform 0.2s;
+  }
+  .upload-zone:hover .upload-icon-wrap { transform: scale(1.1); }
+  .upload-title { font-weight: 700; font-size: 15px; }
+  .upload-hint { color: var(--text-sub); font-size: 12px; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field-label {
+    color: var(--text-muted); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .field-input {
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px; color: white;
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    outline: none; transition: border-color 0.2s; width: 100%;
+  }
+  .field-input:focus { border-color: var(--green); }
+  .field-input::placeholder { color: var(--text-sub); }
+
+  .specs-box {
+    padding: 16px; border-radius: 12px;
+    background: rgba(29,185,84,0.05);
+    border: 1px solid rgba(29,185,84,0.15);
+  }
+  .specs-title {
+    color: var(--green); font-size: 10px; font-weight: 800;
+    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px;
+  }
+  .spec-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+  .spec-key { color: var(--text-muted); font-size: 12px; }
+  .spec-val { color: rgba(255,255,255,0.75); font-size: 12px; font-weight: 600; }
+
+  .phone-wrap {
+    flex: 0 0 auto;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+
+  .phone {
+    position: relative; overflow: hidden;
+    background: #0d0d0d;
+    border: 2px solid rgba(255,255,255,0.13);
+    box-shadow:
+      0 50px 120px rgba(0,0,0,0.9),
+      0 0 0 1px rgba(255,255,255,0.04) inset,
+      0 1px 0 rgba(255,255,255,0.1) inset;
+    transition: width 0.35s cubic-bezier(0.34,1.56,0.64,1),
+                height 0.35s cubic-bezier(0.34,1.56,0.64,1),
+                border-radius 0.35s;
+    width: 300px; height: 620px; border-radius: 44px;
+  }
+  .phone.tablet { width: 380px; height: 720px; border-radius: 28px; }
+
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 26px;
+    background: #0d0d0d;
+    border-radius: 0 0 18px 18px; z-index: 20;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .notch-dot { width: 7px; height: 7px; border-radius: 50%; background: #1c1c1c; border: 1px solid #222; }
+  .notch-bar { width: 38px; height: 3px; border-radius: 2px; background: #1c1c1c; }
+
+  .statusbar {
+    position: absolute; top: 10px; left: 20px; right: 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    z-index: 15;
+  }
+  .statusbar-time { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.75); }
+  .statusbar-icons { display: flex; gap: 3px; align-items: flex-end; }
+  .bar-sig { width: 3px; background: rgba(255,255,255,0.7); border-radius: 1px; }
+  .battery-icon {
+    width: 16px; height: 9px; border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.5);
+    margin-left: 4px; position: relative;
+    display: flex; align-items: center; padding: 1px 2px;
+  }
+  .battery-fill { height: 5px; background: #1DB954; border-radius: 1px; width: 70%; }
+
+  .canvas-bg {
+    position: absolute; inset: 0;
+    background: linear-gradient(160deg, #111 0%, #1a1a2e 50%, #0f0f0f 100%);
+    z-index: 1;
+  }
+  .canvas-bg video,
+  .canvas-bg img {
+    width: 100%; height: 100%; object-fit: cover;
+    display: block;
+  }
+  .canvas-placeholder {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; color: rgba(255,255,255,0.12);
+    background: linear-gradient(135deg, #111 0%, #181818 50%, #111 100%);
+    background-size: 200% 200%;
+    animation: shimmer 3s ease infinite;
+  }
+  .canvas-placeholder span { font-size: 12px; text-align: center; padding: 0 28px; line-height: 1.6; }
+  @keyframes shimmer {
+    0%,100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  .overlay {
+    position: absolute; inset: 0; z-index: 5;
+    background: linear-gradient(to top,
+      rgba(0,0,0,0.96) 0%,
+      rgba(0,0,0,0.35) 38%,
+      rgba(0,0,0,0.08) 60%,
+      transparent 80%);
+  }
+
+  .phone-topbar {
+    position: absolute; top: 36px; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 18px; z-index: 10;
+  }
+  .phone-btn {
+    background: none; border: none; cursor: pointer;
+    color: rgba(255,255,255,0.75); display: flex; padding: 4px;
+  }
+  .now-playing-label {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: rgba(255,255,255,0.5);
+  }
+
+  .player {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 0 20px 28px; z-index: 10;
+  }
+
+  .track-row {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .track-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  .album-thumb {
+    width: 42px; height: 42px; flex-shrink: 0;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #1DB954, #0f8c3a);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .track-name {
+    font-weight: 700; font-size: 14px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 150px;
+  }
+  .track-artist { color: rgba(255,255,255,0.5); font-size: 12px; margin-top: 1px; }
+
+  .like-btn {
+    background: none; border: none; cursor: pointer;
+    padding: 6px; flex-shrink: 0; display: flex;
+    transition: transform 0.15s;
+  }
+  .like-btn:hover { transform: scale(1.15); }
+  .like-btn svg { transition: all 0.2s; }
+
+  .progress-wrap { margin-bottom: 10px; }
+  .progress-track {
+    position: relative; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,0.18); margin-bottom: 5px;
+    cursor: pointer;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 2px;
+    background: white; pointer-events: none;
+    transition: width 0.1s linear;
+  }
+  .progress-thumb {
+    position: absolute; top: 50%; transform: translate(-50%,-50%);
+    width: 12px; height: 12px; border-radius: 50%;
+    background: white; pointer-events: none;
+    opacity: 0; transition: opacity 0.15s;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.5);
+  }
+  .progress-track:hover .progress-thumb { opacity: 1; }
+  .time-row { display: flex; justify-content: space-between; }
+  .time-label { font-size: 10px; color: rgba(255,255,255,0.4); }
+
+  .controls {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .ctrl-btn {
+    background: none; border: none; cursor: pointer;
+    color: rgba(255,255,255,0.75); display: flex; padding: 6px;
+    transition: transform 0.12s, opacity 0.12s;
+  }
+  .ctrl-btn:hover { transform: scale(1.1); }
+  .ctrl-btn:active { transform: scale(0.93); }
+  .ctrl-btn.active-green { color: var(--green); }
+
+  .play-btn {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: white; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #000;
+    box-shadow: 0 4px 24px rgba(255,255,255,0.22);
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .play-btn:hover { transform: scale(1.06); box-shadow: 0 6px 28px rgba(255,255,255,0.3); }
+  .play-btn:active { transform: scale(0.95); }
+
+  .volume-row { display: flex; align-items: center; gap: 10px; }
+  .vol-icon { color: rgba(255,255,255,0.4); display: flex; flex-shrink: 0; }
+  .vol-track {
+    flex: 1; position: relative; height: 3px; border-radius: 2px;
+    background: rgba(255,255,255,0.15); cursor: pointer;
+  }
+  .vol-fill { height: 100%; border-radius: 2px; background: rgba(255,255,255,0.6); pointer-events: none; }
+
+  .playing-indicator {
+    display: flex; align-items: center; gap: 8px;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .playing-indicator.visible { opacity: 1; }
+  .pulse-dot { position: relative; width: 8px; height: 8px; }
+  .pulse-dot::before {
+    content: ''; position: absolute; inset: 0;
+    border-radius: 50%; background: var(--green);
+    animation: pulse-ring 1.6s ease-out infinite;
+  }
+  .pulse-dot::after {
+    content: ''; position: absolute; inset: 0;
+    border-radius: 50%; background: var(--green);
+  }
+  @keyframes pulse-ring {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+  .playing-label { color: var(--green); font-size: 12px; font-weight: 600; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up { animation: fadeUp 0.5s ease forwards; }
+  .fade-up-2 { animation: fadeUp 0.5s 0.1s ease both; }
+  .fade-up-3 { animation: fadeUp 0.5s 0.2s ease both; }
+
+  @media (max-width: 720px) {
+    nav { padding: 14px 20px; }
+    .main { padding: 28px 20px; gap: 32px; }
+    .panel { flex: 0 0 100%; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-brand">
+    <span>Canvas Previewer</span>
+  </div>
+  <div class="device-toggle">
+    <button class="device-btn active" id="btn-phone" onclick="setDevice('phone')">Phone</button>
+    <button class="device-btn" id="btn-tablet" onclick="setDevice('tablet')">Tablet</button>
+  </div>
+</nav>
+
+<div class="main">
+
+  <div class="panel fade-up">
+    <div>
+      <h1 class="panel-title">Upload Canvas</h1>
+      <p class="panel-sub">Preview how your Spotify Canvas looks before submitting.</p>
+    </div>
+
+    <div class="upload-zone" id="dropZone"
+      onclick="document.getElementById('fileInput').click()"
+      ondragover="handleDragOver(event)"
+      ondragleave="handleDragLeave(event)"
+      ondrop="handleDrop(event)">
+      <div class="upload-icon-wrap">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+          <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+        </svg>
+      </div>
+      <div>
+        <p class="upload-title" id="uploadTitle">Drop your canvas here</p>
+        <p class="upload-hint">or click to browse</p>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept="video/*,image/*" style="display:none" onchange="handleFileInput(event)"/>
+
+    <div class="field">
+      <label class="field-label">Track Title</label>
+      <input class="field-input" id="trackTitle" type="text" value="Track Title" placeholder="Enter track title..." oninput="updateTrack()"/>
+    </div>
+    <div class="field">
+      <label class="field-label">Artist Name</label>
+      <input class="field-input" id="artistName" type="text" value="Artist Name" placeholder="Enter artist name..." oninput="updateTrack()"/>
+    </div>
+
+    <div class="specs-box fade-up-2">
+      <p class="specs-title">Canvas Specs</p>
+      <div class="spec-row"><span class="spec-key">Aspect Ratio</span><span class="spec-val">9:16 (vertical)</span></div>
+      <div class="spec-row"><span class="spec-key">Resolution</span><span class="spec-val">720 × 1280px min</span></div>
+      <div class="spec-row"><span class="spec-key">Duration</span><span class="spec-val">3 – 8 seconds</span></div>
+      <div class="spec-row"><span class="spec-key">Format</span><span class="spec-val">MP4, MOV, GIF</span></div>
+      <div class="spec-row" style="margin-bottom:0"><span class="spec-key">Max File Size</span><span class="spec-val">10 MB</span></div>
+    </div>
+  </div>
+
+  <div class="phone-wrap fade-up-3">
+    <div class="phone" id="phone">
+
+      <div class="notch">
+        <div class="notch-dot"></div>
+        <div class="notch-bar"></div>
+      </div>
+
+      <div class="statusbar">
+        <span class="statusbar-time">9:41</span>
+        <div class="statusbar-icons">
+          <div class="bar-sig" style="height:3px"></div>
+          <div class="bar-sig" style="height:5px"></div>
+          <div class="bar-sig" style="height:7px"></div>
+          <div class="bar-sig" style="height:9px"></div>
+          <div class="battery-icon"><div class="battery-fill"></div></div>
+        </div>
+      </div>
+
+      <div class="canvas-bg" id="canvasBg">
+        <div class="canvas-placeholder" id="placeholder">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="3"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <span>Upload a canvas file to preview</span>
+        </div>
+      </div>
+
+      <div class="overlay"></div>
+
+      <div class="phone-topbar">
+        <button class="phone-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <span class="now-playing-label">Now Playing</span>
+        <button class="phone-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="player">
+
+        <div class="track-row">
+          <div class="track-left">
+            <div class="album-thumb">🎵</div>
+            <div>
+              <div class="track-name" id="displayTitle">Track Title</div>
+              <div class="track-artist" id="displayArtist">Artist Name</div>
+            </div>
+          </div>
+          <button class="like-btn" id="likeBtn" onclick="toggleLike()">
+            <svg id="heartSvg" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.65)" stroke-width="2" width="20" height="20">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-track" id="progressTrack" onclick="scrubProgress(event)">
+            <div class="progress-fill" id="progressFill" style="width:32%"></div>
+            <div class="progress-thumb" id="progressThumb" style="left:32%"></div>
+          </div>
+          <div class="time-row">
+            <span class="time-label" id="currentTime">1:09</span>
+            <span class="time-label">3:37</span>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="ctrl-btn" id="shuffleBtn" onclick="toggleShuffle()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
+              <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" onclick="">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="19 20 9 12 19 4 19 20"/>
+              <rect x="4" y="4" width="3" height="16" rx="1"/>
+            </svg>
+          </button>
+          <button class="play-btn" id="playBtn" onclick="togglePlay()">
+            <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 4 15 12 5 20 5 4"/>
+              <rect x="17" y="4" width="3" height="16" rx="1"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" id="repeatBtn" onclick="toggleRepeat()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="17 1 21 5 17 9"/>
+              <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+              <polyline points="7 23 3 19 7 15"/>
+              <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="volume-row">
+          <div class="vol-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+          </div>
+          <div class="vol-track" id="volTrack" onclick="scrubVolume(event)">
+            <div class="vol-fill" id="volFill" style="width:70%"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="playing-indicator" id="playingIndicator">
+      <div class="pulse-dot"></div>
+      <span class="playing-label">Canvas playing</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let isPlaying = false;
+  let liked = false;
+  let shuffle = false;
+  let repeat = false;
+  let progress = 32; 
+  let volume = 70;
+  let progressTimer = null;
+  const TOTAL = 217; 
+
+  function setDevice(mode) {
+    const phone = document.getElementById('phone');
+    document.getElementById('btn-phone').classList.toggle('active', mode === 'phone');
+    document.getElementById('btn-tablet').classList.toggle('active', mode === 'tablet');
+    phone.classList.toggle('tablet', mode === 'tablet');
+  }
+
+  function updateTrack() {
+    document.getElementById('displayTitle').textContent = document.getElementById('trackTitle').value || 'Track Title';
+    document.getElementById('displayArtist').textContent = document.getElementById('artistName').value || 'Artist Name';
+  }
+
+  function fmt(s) {
+    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return m + ':' + String(sec).padStart(2, '0');
+  }
+
+  function startProgress() {
+    clearInterval(progressTimer);
+    progressTimer = setInterval(() => {
+      progress = progress >= 100 ? 0 : progress + (100 / TOTAL / 10);
+      if (progress > 100) progress = 100;
+      renderProgress();
+    }, 100);
+  }
+
+  function renderProgress() {
+    document.getElementById('progressFill').style.width = progress + '%';
+    document.getElementById('progressThumb').style.left = progress + '%';
+    document.getElementById('currentTime').textContent = fmt((progress / 100) * TOTAL);
+  }
+
+  function scrubProgress(e) {
+    const rect = document.getElementById('progressTrack').getBoundingClientRect();
+    progress = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    renderProgress();
+  }
+
+  function scrubVolume(e) {
+    const rect = document.getElementById('volTrack').getBoundingClientRect();
+    volume = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    document.getElementById('volFill').style.width = volume + '%';
+    const vid = document.getElementById('canvasVideo');
+    if (vid) vid.volume = volume / 100;
+  }
+
+  function togglePlay() {
+    isPlaying = !isPlaying;
+    const icon = document.getElementById('playIcon');
+    if (isPlaying) {
+      icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+      startProgress();
+      const vid = document.getElementById('canvasVideo');
+      if (vid) vid.play().catch(() => {});
+    } else {
+      icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+      clearInterval(progressTimer);
+      const vid = document.getElementById('canvasVideo');
+      if (vid) vid.pause();
+    }
+    document.getElementById('playingIndicator').classList.toggle('visible', isPlaying);
+  }
+
+  function toggleLike() {
+    liked = !liked;
+    const svg = document.getElementById('heartSvg');
+    svg.setAttribute('fill', liked ? '#1DB954' : 'none');
+    svg.setAttribute('stroke', liked ? '#1DB954' : 'rgba(255,255,255,0.65)');
+  }
+
+  function toggleShuffle() {
+    shuffle = !shuffle;
+    document.getElementById('shuffleBtn').classList.toggle('active-green', shuffle);
+  }
+  function toggleRepeat() {
+    repeat = !repeat;
+    document.getElementById('repeatBtn').classList.toggle('active-green', repeat);
+  }
+
+  function handleFileInput(e) {
+    const file = e.target.files[0];
+    if (file) loadCanvas(file);
+  }
+  function handleDragOver(e) {
+    e.preventDefault();
+    document.getElementById('dropZone').classList.add('drag-over');
+  }
+  function handleDragLeave(e) {
+    document.getElementById('dropZone').classList.remove('drag-over');
+  }
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('dropZone').classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) loadCanvas(file);
+  }
+
+  function loadCanvas(file) {
+    const url = URL.createObjectURL(file);
+    const isVideo = file.type.startsWith('video');
+    const bg = document.getElementById('canvasBg');
+
+    const name = file.name.length > 28 ? file.name.slice(0, 25) + '...' : file.name;
+    document.getElementById('uploadTitle').textContent = name;
+
+    const old = document.getElementById('canvasVideo') || document.getElementById('canvasImg');
+    if (old) old.remove();
+    document.getElementById('placeholder').style.display = 'none';
+
+    if (isVideo) {
+      const vid = document.createElement('video');
+      vid.id = 'canvasVideo';
+      vid.src = url;
+      vid.loop = true;
+      vid.muted = true;
+      vid.playsInline = true;
+      vid.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;';
+      bg.appendChild(vid);
+      if (isPlaying) vid.play().catch(() => {});
+    } else {
+      const img = document.createElement('img');
+      img.id = 'canvasImg';
+      img.src = url;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;';
+      bg.appendChild(img);
+    }
+  }
+</script>
+</body>
+</html>
