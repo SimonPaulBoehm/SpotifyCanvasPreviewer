@@ -15,13 +15,6 @@ This tool helps artists and producers quickly check if their **Canvas (9:16 loop
 
 ---
 
-## Live Preview
-
-<a href="https://SimonPaulBoehm.github.io/SpotifyCanvasPreviewer/" target="_blank">
-  <img src="https://img.shields.io/badge/Open-Canvas%20Previewer-1DB954?style=for-the-badge&logo=spotify&logoColor=white">
-</a>
-
----
 
 ## How to Use
 
