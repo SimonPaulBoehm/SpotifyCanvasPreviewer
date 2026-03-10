@@ -1,4 +1,4 @@
-# Spotify Canvas Previewer
+#Canvas Previewer
 
 Preview how your **Spotify Canvas videos** will look directly in the Spotify mobile layout.
 
